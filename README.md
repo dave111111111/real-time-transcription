@@ -93,6 +93,6 @@ This system efficiently combines real-time audio capture, intelligent speech det
 - **pydub** - For handling and processing audio files.
 
 ## License
-This project is licensed under the MIT License. 
+This project is licensed under the Creative Commons NonCommercial (CC BY-NC)** License.. 
 Feel free to modify any part of it according to your needs! Let me know if there's anything else I can assist you with.
 If you want to contribute feel free.
