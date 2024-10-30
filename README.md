@@ -95,4 +95,4 @@ This system efficiently combines real-time audio capture, intelligent speech det
 ## License
 This project is licensed under the MIT License. 
 Feel free to modify any part of it according to your needs! Let me know if there's anything else I can assist you with.
-
+If you want to contribute feel free.
