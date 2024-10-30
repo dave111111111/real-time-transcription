@@ -31,6 +31,12 @@ If you're on Windows, you can easily install FFmpeg using Chocolatey. Follow the
    python rec_speak_trans.py
 ```
 
+###Note on Performance
+-For optimal performance, it is recommended to use CUDA for faster processing. Please install CUDA 12.1 and cuDNN 8.9.7 to take advantage of GPU acceleration.
+
+###Modifying the Silence Threshold
+-To modify the silence threshold for voice activity detection, open the main.py file and adjust the SILENCE_THRESHOLD variable located near the beginning of the file. This threshold determines how sensitive the system is to silence, impacting when the recording starts and stops.
+
 ### Recording
 Once started, the system will:
 - Continuously listen to audio input.
