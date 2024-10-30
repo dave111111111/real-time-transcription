@@ -31,6 +31,10 @@ If you're on Windows, you can easily install FFmpeg using Chocolatey. Follow the
    python rec_speak_trans.py
 ```
 
+### Video Example
+
+https://github.com/user-attachments/assets/f4735cf9-2c0f-4b31-a8d6-4fef5163c256
+
 ### Note on Performance
 -For optimal performance, it is recommended to use CUDA for faster processing. Please install CUDA 12.1 and cuDNN 8.9.7 to take advantage of GPU acceleration.
 
