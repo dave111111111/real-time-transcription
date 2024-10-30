@@ -12,7 +12,7 @@ This project is a real-time audio transcription system that captures and transcr
 ## Installation
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/real-time-transcription.git
+   git clone https://github.com/dave111111111/real-time-transcription.git
    cd real-time-transcription
 
 2. Install requirements:
