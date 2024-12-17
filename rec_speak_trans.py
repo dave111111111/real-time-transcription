@@ -8,12 +8,10 @@ import torch
 import time
 from faster_whisper import WhisperModel
 import threading
-from transformers import WhisperTokenizer
-import re
 from pydub import AudioSegment
 
 class SpeechRecognizer:
-    def __init__(self, transcriber, sample_rate=16000, buffer_size=8000, silence_threshold=0.025):
+    def __init__(self, transcriber, sample_rate=16000, buffer_size=8000, silence_threshold=0.040):
         self.model = load_silero_vad()
         self.sample_rate = sample_rate
         self.buffer_size = buffer_size
@@ -32,20 +30,20 @@ class SpeechRecognizer:
         for directory in directories:
             if not os.path.exists(directory):
                 os.makedirs(directory)
-                print(f"Directory '{directory}' created.")
+                print(f"✔ Directory '{directory}' created.")
             else:
-                print(f"Directory '{directory}' already exists.")
+                print(f"✔ Directory '{directory}' already exists.")
 
     def callback(self, indata, frames, time, status):
         """Callback function for the audio stream."""
         if status:
-            print("Status:", status)
+            print("⚠ Status:", status)
         self.audio_buffer.extend(indata[:, 0])
 
     def start_recording(self):
         self.create_directories()
         """Starts the audio stream and begins recording."""
-        print("Recording... Speak in sentences.")
+        print("\n🎙 Recording... Speak in sentences.")
         with sd.InputStream(callback=self.callback, channels=1, samplerate=self.sample_rate):
             while True:
                 if len(self.audio_buffer) >= self.buffer_size:
@@ -57,7 +55,7 @@ class SpeechRecognizer:
         speech_timestamps = get_speech_timestamps(audio_data, self.model, threshold=0.5)
 
         if speech_timestamps:
-            print("Speech detected!")
+            print("\n🔊 Speech detected!")
             self.recording_speech = True
             self.silence_start = None
             int_audio = (np.array(self.audio_buffer) * 32767).astype(np.int16)
@@ -72,7 +70,6 @@ class SpeechRecognizer:
         if self.silence_start is None:
             self.silence_start = time.time()
         elif time.time() - self.silence_start > self.silence_threshold:
-            print("Silence detected; saving sentence.")
             if self.sentence_buffer:
                 self.save_audio()
             self.reset_buffers()
@@ -85,10 +82,8 @@ class SpeechRecognizer:
             wf.setsampwidth(2)
             wf.setframerate(self.sample_rate)
             wf.writeframes(np.array(self.sentence_buffer, dtype=np.int16).tobytes())
-        print(f"Sentence saved to {output_file}")
 
         # Start transcription in a new thread
-        print("Starting transcription thread.")
         transcription_thread = threading.Thread(target=self.transcriber.transcribe_audio_file, args=(output_file,))
         transcription_thread.start()
 
@@ -110,6 +105,7 @@ class Transcriber:
         self.processing_buffer = []
         self.chunk_duration = 30
         self.transcript_file = self.generate_transcript_file(transcript_directory)
+        self.current_transcription = ""  # New variable to store the real-time transcription
 
     def generate_transcript_file(self, transcript_directory):
         """Generate a new transcript file if one already exists."""
@@ -124,11 +120,11 @@ class Transcriber:
 
         # Return the unique filename
         new_file_path = os.path.join(transcript_directory, f"{base_filename}_{file_count}{extension}")
-        print(f"New transcript file created: {new_file_path}")
+        print(f"📄 New transcript file created: {new_file_path}")
         return new_file_path
 
     def transcribe_audio_file(self, audio_file):
-        print(f"Transcribing file: {audio_file}")
+        print(f"🎧 Transcribing file: {audio_file}")
         audio_data, _ = self.load_audio(audio_file)
         self.process_audio_chunks(audio_data)
 
@@ -154,28 +150,48 @@ class Transcriber:
                 self.transcribe_audio(chunk)
 
     def transcribe_audio(self, audio_chunk):
-        print("Transcribing audio chunk...")
-        segments, info = self.model.transcribe(audio_chunk, beam_size=5)
-        print("Detected language '%s' with probability %f" % (info.language, info.language_probability))
+        segments, info = self.model.transcribe(audio_chunk, beam_size=10, task="transcribe")
+        print("🌐 Detected language '%s' with probability %f" % (info.language, info.language_probability))
 
         transcript = ""
         for segment in segments:
             transcript += segment.text
             self.processing_buffer.append((segment.start, segment.end, segment.text))
 
-        print(f"Transcript for current chunk: {transcript}")
+        print(f"📝 Transcripts: \033[1m{transcript}\033[0m\n")
+        print("-------------------------------------------------------------\n")
+
+        self.current_transcription += transcript  # Accumulate the transcription over time
+
         self.update_transcript_file(transcript)
 
     def update_transcript_file(self, transcript):
-        sentences = re.split(r'(?<=[.!?]) +', transcript)
-        with open(self.transcript_file, 'a') as f:
-            for i, sentence in enumerate(sentences):
-                f.write(sentence)
-                if i < len(sentences) - 1:
-                    f.write(" ")
-                if (i + 1) % 2 == 0:
-                    f.write("\n")
-        print(f"Transcript appended to {self.transcript_file}")
+        max_length = 80
+        current_line = ""
+        lines = []  # Initialize lines as an empty list to avoid UnboundLocalError
+
+        try:
+            with open(self.transcript_file, 'r') as f:
+                lines = f.readlines()
+                if lines:
+                    current_line = lines[-1].strip()
+        except FileNotFoundError:
+            pass
+
+        current_line += transcript
+
+        lines_to_write = []
+        while len(current_line) > max_length:
+            lines_to_write.append(current_line[:max_length])
+            current_line = current_line[max_length:]
+
+        with open(self.transcript_file, 'w') as f:
+            if lines:
+                f.writelines(lines[:-1])
+            for line in lines_to_write:
+                f.write(line + "\n")
+            if current_line:
+                f.write(current_line)
 
     def combine_and_cleanup_recordings(self, recordings_directory, output_file="combined_recording.wav"):
         audio_files = [f for f in os.listdir(recordings_directory) if f.endswith(('.wav', '.mp3'))]
@@ -200,14 +216,12 @@ def handle_exit(transcriber, recordings_directory="recordings"):
     transcriber.combine_and_cleanup_recordings(recordings_directory)
 
 
-if __name__ == "__main__":  
+# Initialize transcriber and recognizer
+transcriber = Transcriber()
+recognizer = SpeechRecognizer(transcriber)
 
-    # Initialize transcriber and recognizer
-    transcriber = Transcriber()
-    recognizer = SpeechRecognizer(transcriber)
+# Attach the cleanup function to SIGINT (Ctrl+C)
+signal.signal(signal.SIGINT, lambda *args: handle_exit(transcriber))
 
-    # Attach the cleanup function to SIGINT (Ctrl+C)
-    signal.signal(signal.SIGINT, lambda *args: handle_exit(transcriber))
-
-    # Start recording
-    recognizer.start_recording()
+# Start recording
+recognizer.start_recording()
